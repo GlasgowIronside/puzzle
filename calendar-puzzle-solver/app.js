@@ -61,13 +61,13 @@ const SECOND_CONFIG = {
     '2': [[1], [1]],
     '3': [[0, 1, 0], [0, 1, 0], [1, 1, 1]],
     '4': [[1, 0], [1, 0], [1, 0], [1, 1]],
-    '5': [[0, 1, 0], [0, 1, 0], [1, 1, 1]],
+    '5': [[1, 0, 0], [1, 0, 0], [1, 0, 0]],
     '6': [[1, 0], [1, 1], [1, 1]],
     '7': [[1, 0], [1, 1]],
     '8': [[1, 1, 0], [0, 1, 0], [0, 1, 1]],
     '9': [[1, 0], [1, 0], [1, 1]],
-    '10': [[0, 0, 0, 0, 1], [1, 1, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0]],
-    '11': [[0, 0, 0, 0, 1], [1, 1, 0, 0, 0], [1, 0, 0, 0, 0]],
+    '10': [[1, 0], [1, 1], [0, 1], [0, 1]],
+    '11': [[0, 1], [1, 1], [1, 0]],
   },
 };
 
@@ -110,7 +110,9 @@ const state = {
   pieceStates: {},
   preview: null,
   message: '准备就绪',
-  exportText: '',
+  solving: false,
+  cachedHoles: null,
+  cachedFixedCellSet: null,
 };
 
 const els = {};
@@ -232,14 +234,13 @@ function fillSelect(select, values, current) {
 }
 
 function applyDateSelection(resetPlacements) {
-  const holes = resolveHoles(state.config, state.month, state.day, state.weekday);
   state.message = `日期点：${[state.month, state.day, state.weekday].filter(Boolean).join(' / ') || '未选择'}`;
   if (resetPlacements) {
     state.placements.clear();
     selectPiece(null);
   }
   render();
-  if (holes.size === 0) {
+  if (state.cachedHoles.size === 0) {
     toast('当前没有新增日期点，使用固定障碍块继续摆放。');
   }
 }
@@ -267,6 +268,7 @@ function resetBoard() {
 
 function selectPiece(pieceName) {
   state.selectedPiece = pieceName;
+  state.preview = null;
   if (pieceName) {
     state.message = `已选中 ${pieceName}，点击棋盘空位放置`;
   } else {
@@ -340,9 +342,19 @@ function handleKeyboard(event) {
 }
 
 function render() {
+  state.cachedHoles = resolveHoles(state.config, state.month, state.day, state.weekday);
+  state.cachedFixedCellSet = buildFixedCellSet(state.config);
   renderBoard();
   renderPieceList();
   updateStatus();
+}
+
+function buildFixedCellSet(config) {
+  const set = new Set();
+  for (const cells of Object.values(config.fixed_blocks ?? {})) {
+    for (const [x, y] of cells) set.add(cellKey(x, y));
+  }
+  return set;
 }
 
 function renderBoard() {
@@ -354,8 +366,8 @@ function renderBoard() {
   board.style.width = `${width * CELL}px`;
   board.style.height = `${height * CELL}px`;
 
-  const holes = resolveHoles(state.config, state.month, state.day, state.weekday);
-  const fixedBlocks = toCellSets(state.config.fixed_blocks ?? {});
+  const holes = state.cachedHoles;
+  const fixedCellSet = state.cachedFixedCellSet;
   const selectedPieceCells = state.selectedPiece && state.placements.get(state.selectedPiece)?.cells;
   const occupied = buildOccupiedMap();
   const boardLabels = buildBoardLabelMap(state.config);
@@ -374,7 +386,7 @@ function renderBoard() {
       if (labelInfo) {
         button.classList.add('has-label', 'is-label-point');
       }
-      if (isTargetCell(key, holes, fixedBlocks)) button.classList.add('is-target');
+      if (!holes.has(key) && !fixedCellSet.has(key)) button.classList.add('is-target');
       if (holes.has(key)) {
         if (labelInfo) {
           button.classList.add('is-hole', 'is-label-point');
@@ -382,12 +394,11 @@ function renderBoard() {
           button.classList.add('is-void');
         }
       }
-      if (fixedBlocks.has(key)) button.classList.add('is-fixed');
+      if (fixedCellSet.has(key)) button.classList.add('is-fixed');
       if (selectedPieceCells && selectedPieceCells.has(key)) button.classList.add('is-selected-target');
       if (!holes.has(key)) {
         button.addEventListener('click', () => handleBoardClick(x, y));
         button.addEventListener('mouseenter', () => handleBoardHover(x, y));
-        button.addEventListener('pointermove', () => handleBoardHover(x, y));
         button.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           handleBoardRightClick(x, y, occupied);
@@ -412,6 +423,11 @@ function renderBoard() {
     const layer = renderPlacementLayer(piece, placement.cells, width, height);
     layer.classList.toggle('selected', piece === state.selectedPiece);
     overlay.appendChild(layer);
+  }
+
+  if (state.preview) {
+    const previewLayer = renderPreviewLayer(state.preview);
+    overlay.appendChild(previewLayer);
   }
 
   board.appendChild(overlay);
@@ -495,8 +511,27 @@ function renderPlacementLayer(piece, cells, width, height) {
 
 function renderPieceList() {
   const list = els.pieceList;
+  const pieces = Object.keys(state.config.piece_shapes);
+  const existingCards = list.querySelectorAll('.piece-card');
+
+  if (existingCards.length === pieces.length && list.dataset.setId === state.activeSetId) {
+    for (let i = 0; i < pieces.length; i++) {
+      const name = pieces[i];
+      const card = existingCards[i];
+      card.classList.toggle('active', state.selectedPiece === name);
+      const statusEl = card.querySelector('.piece-status');
+      if (statusEl) {
+        const placement = state.placements.get(name);
+        const ps = state.pieceStates[name];
+        statusEl.textContent = placement ? '已放置' : `旋转 ${ps.rotation * 90}°${ps.reflected ? ' · 翻面' : ''}`;
+      }
+    }
+    return;
+  }
+
   list.innerHTML = '';
-  for (const name of Object.keys(state.config.piece_shapes)) {
+  list.dataset.setId = state.activeSetId;
+  for (const name of pieces) {
     const template = document.getElementById('pieceTemplate');
     const card = template.content.firstElementChild.cloneNode(true);
     const title = card.querySelector('.piece-card-title');
@@ -511,7 +546,6 @@ function renderPieceList() {
       render();
     });
 
-    const placement = state.placements.get(name);
     const ps = state.pieceStates[name];
     const orientation = getCurrentOrientationCells(name);
     const previewCells = orientation.length ? orientation : matrixToCells(state.config.piece_shapes[name]);
@@ -537,6 +571,7 @@ function renderPieceList() {
 
     const status = document.createElement('div');
     status.className = 'piece-status';
+    const placement = state.placements.get(name);
     status.textContent = placement ? '已放置' : `旋转 ${ps.rotation * 90}°${ps.reflected ? ' · 翻面' : ''}`;
     card.appendChild(status);
 
@@ -545,7 +580,7 @@ function renderPieceList() {
 }
 
 function updateStatus() {
-  const holes = resolveHoles(state.config, state.month, state.day, state.weekday);
+  const holes = state.cachedHoles;
   const summary = [
     state.message,
     `日期点 ${holes.size > 0 ? [...holes].map(parseKey).map(([x, y]) => `(${x},${y})`).join(' / ') : '无'}`,
@@ -566,6 +601,90 @@ function handleBoardClick(x, y) {
     return;
   }
   placeSelectedPiece(x, y);
+}
+
+function handleBoardHover(x, y) {
+  if (!state.selectedPiece || state.placements.has(state.selectedPiece)) {
+    if (state.preview) {
+      state.preview = null;
+      renderPreviewUpdate();
+    }
+    return;
+  }
+  const piece = state.selectedPiece;
+  const oriented = getCurrentOrientationCells(piece);
+  const { width, height } = getBoardSize(state.config);
+  const holes = state.cachedHoles;
+  const fixedCellSet = state.cachedFixedCellSet;
+  const occupied = buildOccupiedMap();
+  const cells = [];
+  let valid = true;
+  for (const [dx, dy] of oriented) {
+    const cx = x + dx;
+    const cy = y + dy;
+    if (cx < 1 || cy < 1 || cx > width || cy > height) { valid = false; break; }
+    const key = cellKey(cx, cy);
+    if (holes.has(key) || fixedCellSet.has(key)) { valid = false; break; }
+    const owner = occupied.get(key);
+    if (owner && owner !== piece) { valid = false; break; }
+    cells.push(key);
+  }
+  const newPreview = cells.length ? { piece, cells, valid } : null;
+  if (!previewEquals(state.preview, newPreview)) {
+    state.preview = newPreview;
+    renderPreviewUpdate();
+  }
+}
+
+function previewEquals(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (a.piece !== b.piece || a.valid !== b.valid || a.cells.length !== b.cells.length) return false;
+  for (let i = 0; i < a.cells.length; i++) {
+    if (a.cells[i] !== b.cells[i]) return false;
+  }
+  return true;
+}
+
+function renderPreviewUpdate() {
+  const existing = els.board.querySelector('.preview-layer');
+  if (existing) existing.remove();
+  if (!state.preview) return;
+  const overlay = els.board.querySelector('.board-overlay');
+  if (!overlay) return;
+  overlay.appendChild(renderPreviewLayer(state.preview));
+}
+
+function renderPreviewLayer(preview) {
+  const { piece, cells, valid } = preview;
+  const color = valid ? (PIECE_COLORS[piece] ?? '#60a5fa') : '#ef4444';
+  const opacity = valid ? 0.4 : 0.3;
+  const parsed = cells.map(parseKey);
+  const minX = Math.min(...parsed.map(([x]) => x));
+  const minY = Math.min(...parsed.map(([, y]) => y));
+  const maxX = Math.max(...parsed.map(([x]) => x));
+  const maxY = Math.max(...parsed.map(([, y]) => y));
+  const layer = document.createElement('div');
+  layer.className = 'piece-layer preview-layer';
+  layer.style.pointerEvents = 'none';
+  layer.style.opacity = String(opacity);
+  layer.style.left = `${(minX - 1) * CELL}px`;
+  layer.style.top = `${(minY - 1) * CELL}px`;
+  layer.style.width = `${(maxX - minX + 1) * CELL}px`;
+  layer.style.height = `${(maxY - minY + 1) * CELL}px`;
+  layer.style.background = 'transparent';
+  layer.style.border = 'none';
+  for (const [x, y] of parsed) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.left = `${(x - minX) * CELL}px`;
+    cell.style.top = `${(y - minY) * CELL}px`;
+    cell.style.width = `${CELL}px`;
+    cell.style.height = `${CELL}px`;
+    cell.style.background = color;
+    layer.appendChild(cell);
+  }
+  return layer;
 }
 
 function handleBoardRightClick(x, y, occupied) {
@@ -789,7 +908,8 @@ function placeSelectedPiece(anchorX, anchorY) {
 function buildPlacement(piece, anchorX, anchorY) {
   const oriented = getCurrentOrientationCells(piece);
   const { width, height } = getBoardSize(state.config);
-  const holes = resolveHoles(state.config, state.month, state.day, state.weekday);
+  const holes = state.cachedHoles;
+  const fixedCellSet = state.cachedFixedCellSet;
   const occupied = buildOccupiedMap();
   const cells = new Set();
   for (const [dx, dy] of oriented) {
@@ -800,7 +920,7 @@ function buildPlacement(piece, anchorX, anchorY) {
     }
     const key = cellKey(x, y);
     if (holes.has(key)) return { valid: false, reason: `拼块 ${piece} 不能覆盖日期点` };
-    if (isFixedCell(key, state.config)) return { valid: false, reason: `拼块 ${piece} 不能覆盖固定障碍块` };
+    if (fixedCellSet.has(key)) return { valid: false, reason: `拼块 ${piece} 不能覆盖固定障碍块` };
     const owner = occupied.get(key);
     if (owner && owner !== piece) return { valid: false, reason: `位置与 ${owner} 冲突` };
     cells.add(key);
@@ -893,23 +1013,34 @@ function resolveHoles(config, month, day, weekday) {
 }
 
 function handleAutoSolve() {
-  try {
-    const result = solveCurrentState();
-    if (!result) {
-      toast('当前约束下无解。');
-      state.message = '无解';
+  if (state.solving) return;
+  state.solving = true;
+  state.message = '求解中…';
+  els.btnAutoSolve.disabled = true;
+  els.btnAutoSolve.textContent = '求解中…';
+  render();
+
+  setTimeout(() => {
+    try {
+      const result = solveCurrentState();
+      if (!result) {
+        toast('当前约束下无解。');
+        state.message = '无解';
+      } else {
+        state.placements = result;
+        state.selectedPiece = null;
+        state.message = '自动解完成';
+      }
+    } catch (error) {
+      toast(error.message || String(error));
+      state.message = '自动解失败';
+    } finally {
+      state.solving = false;
+      els.btnAutoSolve.disabled = false;
+      els.btnAutoSolve.textContent = '自动解';
       render();
-      return;
     }
-    state.placements = result;
-    state.selectedPiece = null;
-    state.message = '自动解完成';
-    render();
-  } catch (error) {
-    toast(error.message || String(error));
-    state.message = '自动解失败';
-    render();
-  }
+  }, 16);
 }
 
 function solveCurrentState() {
@@ -1113,7 +1244,6 @@ function exportLayout() {
   };
   const text = JSON.stringify(payload, null, 2);
   els.jsonBox.value = text;
-  state.exportText = text;
   copyToClipboard(text);
   toast('布局已导出到文本框，并尝试复制到剪贴板。');
 }
@@ -1297,27 +1427,6 @@ function toCellSets(source) {
   return map;
 }
 
-function cellSetsToKeys(source) {
-  const map = new Map();
-  for (const [name, cells] of Object.entries(source ?? {})) {
-    map.set(name, cells.map(([x, y]) => cellKey(x, y)));
-  }
-  return map;
-}
-
-function isTargetCell(key, holes, fixedBlocks) {
-  return !holes.has(key) && !fixedBlocks.has(key);
-}
-
-function isFixedCell(key, config) {
-  const fixedBlocks = config.fixed_blocks ?? {};
-  for (const cells of Object.values(fixedBlocks)) {
-    for (const [x, y] of cells) {
-      if (cellKey(x, y) === key) return true;
-    }
-  }
-  return false;
-}
 
 function getBoardSize(config) {
   return { width: config.board_size[0], height: config.board_size[1] };
@@ -1391,10 +1500,6 @@ function cellKey(x, y) {
 
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
-}
-
-function deepEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function toast(message) {
