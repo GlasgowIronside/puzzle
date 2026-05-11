@@ -194,7 +194,7 @@ h1 {
 .board-cell {
   position: relative;
   border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
   color: rgba(226, 232, 240, 0.7);
   font-size: 0.7rem;
   padding: 0;
@@ -204,7 +204,7 @@ h1 {
 }
 
 .board-cell.is-target {
-  background: rgba(255, 255, 255, 0.035);
+  background: transparent;
 }
 
 .board-cell.has-label {
@@ -222,8 +222,8 @@ h1 {
 }
 
 .board-cell.is-hole {
-  background: linear-gradient(135deg, rgba(244, 244, 245, 0.16), rgba(148, 163, 184, 0.08));
-  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  color: rgba(226, 232, 240, 0.72);
 }
 
 .board-cell.is-void {
