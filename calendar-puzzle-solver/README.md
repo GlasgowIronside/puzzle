@@ -54,3 +54,33 @@ python solver.py --config your_config.json --month APR --day 15 --weekday WED
 - `shapes.json`：拼块形状库
 - `examples/apr_15_wed.json`：你当前案例示例
 - `SKILL.md`：Skill 版规范
+
+## 网页交互版本
+
+仓库根目录已新增静态网页入口，可直接作为 GitHub Pages 部署目标：
+
+- `index.html`：网页主入口
+- `styles.css`：页面样式
+- `app.js`：棋盘渲染、交互、自动求解与导入导出逻辑
+
+### 本地打开
+
+建议通过本地静态服务器预览，例如 VS Code Live Server、Python `http.server` 或任意静态文件服务。
+
+### GitHub Pages 部署
+
+1. 将仓库推送到 GitHub
+2. 在仓库设置中开启 Pages
+3. 选择根目录（`/`）作为发布来源
+4. 部署完成后，`index.html` 即为网页入口
+
+### 网页版能力
+
+- 日期点设置（month / day / weekday）
+- 点击选择拼块、点击棋盘摆放
+- 旋转 / 翻转 / 回收选中拼块
+- 自动求解当前布局
+- 布局导入 / 导出
+- 保存棋盘图片
+
+> 注：当前网页默认使用仓库内的示例配置；如果你有完整的日期映射配置，可以通过“加载配置 JSON”导入后获得完整题面。

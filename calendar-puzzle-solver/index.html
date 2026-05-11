@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Calendar Puzzle Solver</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Calendar Puzzle</p>
+          <h1>日历拼图网页版</h1>
+          <p class="subtitle">点击拼块选择，点击棋盘摆放；支持旋转、翻转、自动求解、导入导出和图片保存。</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="btnAutoSolve" class="primary">自动解</button>
+          <button id="btnResetBoard">重置摆放</button>
+          <button id="btnCancelSelection">取消选中</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel board-panel">
+          <div class="panel-header">
+            <h2>棋盘</h2>
+            <div id="statusText" class="status">准备就绪</div>
+          </div>
+          <div id="boardWrap" class="board-wrap">
+            <div id="board" class="board" aria-label="拼图棋盘"></div>
+          </div>
+          <div class="hint-row">
+            <span>左键：选中/放置</span>
+            <span>右键：移除</span>
+            <span>键盘：R 旋转 / F 翻转 / E 取消</span>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <section class="panel controls-panel">
+            <div class="panel-header">
+              <h2>日期点</h2>
+              <button id="btnClearDate" class="ghost">清空</button>
+            </div>
+            <div class="date-grid">
+              <label>
+                <span>月</span>
+                <select id="monthSelect"></select>
+              </label>
+              <label>
+                <span>日</span>
+                <select id="daySelect"></select>
+              </label>
+              <label>
+                <span>星期</span>
+                <select id="weekdaySelect"></select>
+              </label>
+            </div>
+          </section>
+
+          <section class="panel piece-panel">
+            <div class="panel-header">
+              <h2>拼块</h2>
+              <div class="piece-actions">
+                <button id="btnRotate">旋转</button>
+                <button id="btnFlip">翻转</button>
+                <button id="btnRecycle">回收选中</button>
+              </div>
+            </div>
+            <div id="pieceList" class="piece-list"></div>
+          </section>
+
+          <section class="panel io-panel">
+            <div class="panel-header">
+              <h2>导入 / 导出</h2>
+              <div class="io-actions">
+                <button id="btnExportLayout" class="primary">导出布局</button>
+                <button id="btnImportLayout">导入布局</button>
+                <button id="btnSaveImage">保存图片</button>
+              </div>
+            </div>
+            <textarea id="jsonBox" spellcheck="false" placeholder="布局 JSON 会显示在这里；也可以粘贴后导入。"></textarea>
+            <div class="file-row">
+              <input id="configFile" type="file" accept="application/json,.json" />
+              <button id="btnLoadConfig">加载配置 JSON</button>
+            </div>
+            <p class="small-note">配置 JSON 支持 `board_size`、`piece_shapes`、`fixed_blocks`、`constraints`、`allow_reflection`、`label_map`。</p>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <template id="pieceTemplate">
+      <button class="piece-card" type="button">
+        <div class="piece-card-title"></div>
+        <div class="piece-preview"></div>
+      </button>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
