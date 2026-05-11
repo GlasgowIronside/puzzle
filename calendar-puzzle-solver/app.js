@@ -54,6 +54,8 @@ const state = {
 
 const els = {};
 const toastState = { timer: null };
+let dragState = null;
+let inputLockUntil = 0;
 
 const CELL = 44;
 
@@ -169,6 +171,7 @@ function clearDateSelection() {
 
 function resetBoard() {
   state.placements.clear();
+  initPieceStates(state.config);
   selectPiece(null);
   state.message = '已重置摆放';
   render();
@@ -306,6 +309,7 @@ function renderPlacementLayer(piece, cells, width, height) {
   const layer = document.createElement('button');
   layer.type = 'button';
   layer.className = 'piece-layer';
+  layer.style.pointerEvents = 'none';
   const color = PIECE_COLORS[piece] ?? '#60a5fa';
   const arr = [...cells].map(parseKey);
   const minX = Math.min(...arr.map(([x]) => x));
@@ -333,11 +337,34 @@ function renderPlacementLayer(piece, cells, width, height) {
   for (const [x, y] of arr) {
     const cell = document.createElement('div');
     cell.className = 'cell';
+    cell.dataset.piece = piece;
+    cell.style.pointerEvents = 'auto';
+    cell.style.touchAction = 'none';
     cell.style.left = `${(x - minX) * CELL}px`;
     cell.style.top = `${(y - minY) * CELL}px`;
     cell.style.width = `${CELL}px`;
     cell.style.height = `${CELL}px`;
     cell.style.background = color;
+    cell.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (shouldIgnoreInput()) return;
+      selectPiece(piece);
+    });
+    cell.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (shouldIgnoreInput()) return;
+      state.placements.delete(piece);
+      state.selectedPiece = piece;
+      state.message = `已移除 ${piece}`;
+      render();
+    });
+    cell.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.button !== 0 || shouldIgnoreInput()) return;
+      beginDrag(piece, x, y, event);
+    });
     layer.appendChild(cell);
   }
 
@@ -406,6 +433,7 @@ function updateStatus() {
 }
 
 function handleBoardClick(x, y) {
+  if (shouldIgnoreInput()) return;
   if (!state.selectedPiece) {
     const owner = getOccupiedOwner(x, y);
     if (owner) {
@@ -419,6 +447,7 @@ function handleBoardClick(x, y) {
 }
 
 function handleBoardRightClick(x, y, occupied) {
+  if (shouldIgnoreInput()) return;
   const owner = getOccupiedOwner(x, y);
   if (!owner) return;
   state.placements.delete(owner);
@@ -427,20 +456,212 @@ function handleBoardRightClick(x, y, occupied) {
   render();
 }
 
+function shouldIgnoreInput() {
+  return performance.now() < inputLockUntil;
+}
+
+function lockInput(ms = 220) {
+  inputLockUntil = performance.now() + ms;
+}
+
+function beginDrag(piece, cellX, cellY, event) {
+  const placement = state.placements.get(piece);
+  if (!placement) return;
+
+  const cells = [...placement.cells].map(parseKey);
+  const minX = Math.min(...cells.map(([x]) => x));
+  const minY = Math.min(...cells.map(([, y]) => y));
+
+  dragState = {
+    piece,
+    pointerId: event.pointerId,
+    originMinX: minX,
+    originMinY: minY,
+    offsetX: cellX - minX,
+    offsetY: cellY - minY,
+    ghost: null,
+    currentClientX: event.clientX,
+    currentClientY: event.clientY,
+    started: false,
+    previousMessage: state.message,
+    lastValidAnchor: null,
+  };
+
+  state.selectedPiece = piece;
+  state.message = `拖动 ${piece} 中`;
+  render();
+
+  try {
+    event.currentTarget?.setPointerCapture?.(event.pointerId);
+  } catch {
+    // Ignore capture failures in browsers that do not support it in this context.
+  }
+
+  document.addEventListener('pointermove', onGlobalPointerMove, true);
+  document.addEventListener('pointerup', onGlobalPointerUp, true);
+  document.addEventListener('mouseup', onGlobalMouseUp, true);
+  document.addEventListener('pointercancel', cancelDrag, true);
+}
+
+function onGlobalPointerMove(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  dragState.currentClientX = event.clientX;
+  dragState.currentClientY = event.clientY;
+
+  const boardPoint = clientToBoardCell(event.clientX, event.clientY);
+  if (!boardPoint) {
+    if (dragState.lastValidAnchor) {
+      showDragGhost(dragState.piece, dragState.lastValidAnchor.x, dragState.lastValidAnchor.y);
+    } else {
+      hideDragGhost();
+    }
+    return;
+  }
+
+  const [boardX, boardY] = boardPoint;
+  const anchorX = boardX - dragState.offsetX;
+  const anchorY = boardY - dragState.offsetY;
+  if (!dragState.started) {
+    dragState.started = true;
+    lockInput(300);
+  }
+  dragState.lastValidAnchor = { x: anchorX, y: anchorY };
+  showDragGhost(dragState.piece, anchorX, anchorY);
+}
+
+function onGlobalPointerUp(event) {
+  if (!dragState || (event.pointerId !== undefined && event.pointerId !== dragState.pointerId)) return;
+
+  const boardPoint = clientToBoardCell(event.clientX, event.clientY);
+  const piece = dragState.piece;
+  const previousMessage = dragState.previousMessage;
+  const hasMoved = dragState.started;
+  const fallbackAnchor = dragState.lastValidAnchor;
+  removeDragGhost();
+  cleanupDragListeners();
+
+  if (!hasMoved || (!boardPoint && !fallbackAnchor)) {
+    state.message = previousMessage;
+    render();
+    dragState = null;
+    lockInput(180);
+    return;
+  }
+
+  const [boardX, boardY] = boardPoint ?? [fallbackAnchor.x + dragState.offsetX, fallbackAnchor.y + dragState.offsetY];
+  const anchorX = boardPoint ? boardX - dragState.offsetX : fallbackAnchor.x;
+  const anchorY = boardPoint ? boardY - dragState.offsetY : fallbackAnchor.y;
+  dragState = null;
+  lockInput(220);
+  state.selectedPiece = piece;
+  const success = placeSelectedPiece(anchorX, anchorY);
+  if (!success) {
+    state.message = previousMessage;
+    render();
+  }
+}
+
+function cancelDrag() {
+  removeDragGhost();
+  cleanupDragListeners();
+  if (dragState?.previousMessage) {
+    state.message = dragState.previousMessage;
+    render();
+  }
+  dragState = null;
+}
+
+function cleanupDragListeners() {
+  document.removeEventListener('pointermove', onGlobalPointerMove, true);
+  document.removeEventListener('pointerup', onGlobalPointerUp, true);
+  document.removeEventListener('mouseup', onGlobalMouseUp, true);
+  document.removeEventListener('pointercancel', cancelDrag, true);
+}
+
+function onGlobalMouseUp(event) {
+  if (!dragState) return;
+  onGlobalPointerUp({
+    pointerId: dragState.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  });
+}
+
+function clientToBoardCell(clientX, clientY) {
+  const rect = els.board.getBoundingClientRect();
+  const x = Math.floor((clientX - rect.left) / CELL) + 1;
+  const y = Math.floor((clientY - rect.top) / CELL) + 1;
+  const { width, height } = getBoardSize(state.config);
+  if (x < 1 || y < 1 || x > width || y > height) return null;
+  return [x, y];
+}
+
+function showDragGhost(piece, anchorX, anchorY) {
+  const placement = state.placements.get(piece);
+  if (!placement) return;
+  const cells = [...placement.cells].map(parseKey);
+  const minX = Math.min(...cells.map(([x]) => x));
+  const minY = Math.min(...cells.map(([, y]) => y));
+  const layer = dragState?.ghost ?? createGhostLayer(piece, cells, minX, minY);
+  if (!dragState.ghost) {
+    dragState.ghost = layer;
+    els.board.appendChild(layer);
+  }
+  layer.style.left = `${(anchorX - 1) * CELL}px`;
+  layer.style.top = `${(anchorY - 1) * CELL}px`;
+  layer.style.display = 'block';
+}
+
+function hideDragGhost() {
+  if (dragState?.ghost) {
+    dragState.ghost.style.display = 'none';
+  }
+}
+
+function removeDragGhost() {
+  if (dragState?.ghost) {
+    dragState.ghost.remove();
+    dragState.ghost = null;
+  }
+}
+
+function createGhostLayer(piece, cells, minX, minY) {
+  const layer = document.createElement('div');
+  layer.className = 'piece-layer drag-ghost';
+  layer.style.pointerEvents = 'none';
+  const color = PIECE_COLORS[piece] ?? '#60a5fa';
+  const maxX = Math.max(...cells.map(([x]) => x));
+  const maxY = Math.max(...cells.map(([, y]) => y));
+  layer.style.width = `${(maxX - minX + 1) * CELL}px`;
+  layer.style.height = `${(maxY - minY + 1) * CELL}px`;
+  for (const [x, y] of cells) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.left = `${(x - minX) * CELL}px`;
+    cell.style.top = `${(y - minY) * CELL}px`;
+    cell.style.width = `${CELL}px`;
+    cell.style.height = `${CELL}px`;
+    cell.style.background = color;
+    layer.appendChild(cell);
+  }
+  return layer;
+}
+
 function placeSelectedPiece(anchorX, anchorY) {
   const piece = state.selectedPiece;
-  if (!piece) return;
+  if (!piece) return false;
   const current = state.placements.get(piece);
   if (current) state.placements.delete(piece);
   const result = buildPlacement(piece, anchorX, anchorY);
   if (!result.valid) {
     if (current) state.placements.set(piece, current);
     toast(result.reason);
-    return;
+    return false;
   }
   state.placements.set(piece, { cells: result.cells });
   state.message = `已放置 ${piece} 到 (${anchorX}, ${anchorY})`;
   render();
+  return true;
 }
 
 function buildPlacement(piece, anchorX, anchorY) {
