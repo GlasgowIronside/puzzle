@@ -1,7 +1,7 @@
 const DEFAULT_CONFIG = {
   board_size: [10, 5],
   allow_reflection: true,
-  holes: [[1, 2], [5, 3], [10, 2]],
+  holes: [],
   fixed_blocks: {
     orange: [[9, 3], [10, 3], [9, 4], [10, 4], [9, 5], [10, 5]],
   },
@@ -12,9 +12,24 @@ const DEFAULT_CONFIG = {
     must_not_cover: {},
   },
   label_map: {
-    months: { APR: [1, 2] },
-    days: { 15: [5, 3] },
-    weekdays: { WED: [10, 2] },
+    months: {
+      Jan: [1, 1], Feb: [2, 1], Mar: [3, 1],
+      Apr: [1, 2], May: [2, 2],
+      Jun: [1, 3], Jul: [2, 3],
+      Aug: [1, 4], Sep: [2, 4],
+      Oct: [1, 5], Nov: [2, 5], Dec: [3, 5],
+    },
+    days: {
+      1: [4, 1], 2: [5, 1], 3: [6, 1], 4: [7, 1], 5: [8, 1],
+      6: [3, 2], 7: [4, 2], 8: [5, 2], 9: [6, 2], 10: [7, 2], 11: [8, 2], 12: [9, 2],
+      13: [3, 3], 14: [4, 3], 15: [5, 3], 16: [6, 3], 17: [7, 3], 18: [8, 3],
+      20: [3, 4], 21: [4, 4], 22: [5, 4], 23: [6, 4], 24: [7, 4], 25: [8, 4],
+      27: [4, 5], 28: [5, 5], 29: [6, 5], 30: [7, 5], 31: [8, 5],
+    },
+    weekdays: {
+      Mon: [9, 1], Tue: [10, 1],
+      Wed: [10, 2],
+    },
   },
   piece_shapes: {
     green: [[1, 1, 1, 1], [0, 0, 1, 0]],
@@ -102,9 +117,9 @@ const PIECE_COLORS = {
 const state = {
   activeSetId: 'classic',
   config: clone(DEFAULT_CONFIG),
-  month: 'APR',
-  day: '15',
-  weekday: 'WED',
+  month: 'Jan',
+  day: '1',
+  weekday: 'Mon',
   selectedPiece: null,
   placements: new Map(),
   pieceStates: {},
@@ -995,7 +1010,7 @@ function resolveHoles(config, month, day, weekday) {
     throw new Error('当前配置缺少 label_map，无法按日期点求解。');
   }
   if (month) {
-    const value = labelMap?.months?.[month.toUpperCase()];
+    const value = labelMap?.months?.[month];
     if (!value) throw new Error(`month=${month} 不在 label_map.months 中`);
     holes.add(cellKey(value[0], value[1]));
   }
@@ -1005,7 +1020,7 @@ function resolveHoles(config, month, day, weekday) {
     holes.add(cellKey(value[0], value[1]));
   }
   if (weekday) {
-    const value = labelMap?.weekdays?.[weekday.toUpperCase()];
+    const value = labelMap?.weekdays?.[weekday];
     if (!value) throw new Error(`weekday=${weekday} 不在 label_map.weekdays 中`);
     holes.add(cellKey(value[0], value[1]));
   }
