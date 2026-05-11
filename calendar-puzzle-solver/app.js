@@ -384,7 +384,7 @@ function renderBoard() {
       const label = labelInfo?.label;
       button.textContent = label ?? (x === 1 ? `${y}` : '');
       if (labelInfo) {
-        button.classList.add('has-label', 'is-label-point');
+        button.classList.add('has-label');
       }
       if (!holes.has(key) && !fixedCellSet.has(key)) button.classList.add('is-target');
       if (holes.has(key)) {
