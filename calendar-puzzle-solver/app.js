@@ -368,11 +368,20 @@ function renderBoard() {
       button.className = 'board-cell';
       button.dataset.x = String(x);
       button.dataset.y = String(y);
-      const label = boardLabels.get(key);
+      const labelInfo = boardLabels.get(key);
+      const label = labelInfo?.label;
       button.textContent = label ?? (x === 1 ? `${y}` : '');
-      if (label) button.classList.add('has-label');
+      if (labelInfo) {
+        button.classList.add('has-label', 'is-label-point');
+      }
       if (isTargetCell(key, holes, fixedBlocks)) button.classList.add('is-target');
-      if (holes.has(key)) button.classList.add(state.activeSetId === 'extended' ? 'is-void' : 'is-hole');
+      if (holes.has(key)) {
+        if (labelInfo) {
+          button.classList.add('is-hole', 'is-label-point');
+        } else {
+          button.classList.add('is-void');
+        }
+      }
       if (fixedBlocks.has(key)) button.classList.add('is-fixed');
       if (selectedPieceCells && selectedPieceCells.has(key)) button.classList.add('is-selected-target');
       if (!holes.has(key)) {
@@ -384,8 +393,13 @@ function renderBoard() {
           handleBoardRightClick(x, y, occupied);
         });
       } else {
-        button.disabled = true;
-        button.setAttribute('aria-hidden', 'true');
+        if (labelInfo) {
+          button.disabled = true;
+          button.setAttribute('aria-disabled', 'true');
+        } else {
+          button.disabled = true;
+          button.setAttribute('aria-hidden', 'true');
+        }
       }
       board.appendChild(button);
     }
@@ -407,7 +421,7 @@ function buildBoardLabelMap(config) {
   const labels = new Map();
   for (const group of ['months', 'days', 'weekdays']) {
     for (const [label, cell] of Object.entries(config.label_map?.[group] ?? {})) {
-      labels.set(cellKey(cell[0], cell[1]), label);
+      labels.set(cellKey(cell[0], cell[1]), { label });
     }
   }
   return labels;
