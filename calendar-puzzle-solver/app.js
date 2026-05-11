@@ -28,6 +28,54 @@ const DEFAULT_CONFIG = {
   },
 };
 
+const SECOND_CONFIG = {
+  board_size: [7, 8],
+  allow_reflection: true,
+  holes: [[7, 1], [7, 2], [1, 8], [2, 8], [3, 8], [4, 8]],
+  fixed_blocks: {},
+  constraints: {
+    forbid_reflection: [],
+    fixed_piece_positions: {},
+    must_cover: {},
+    must_not_cover: {},
+  },
+  label_map: {
+    months: {
+      '1月': [1, 1], '2月': [2, 1], '3月': [3, 1], '4月': [4, 1], '5月': [5, 1], '6月': [6, 1],
+      '7月': [1, 2], '8月': [2, 2], '9月': [3, 2], '10月': [4, 2], '11月': [5, 2], '12月': [6, 2],
+    },
+    days: {
+      '1日': [1, 3], '2日': [2, 3], '3日': [3, 3], '4日': [4, 3], '5日': [5, 3], '6日': [6, 3], '7日': [7, 3],
+      '8日': [1, 4], '9日': [2, 4], '10日': [3, 4], '11日': [4, 4], '12日': [5, 4], '13日': [6, 4], '14日': [7, 4],
+      '15日': [1, 5], '16日': [2, 5], '17日': [3, 5], '18日': [4, 5], '19日': [5, 5], '20日': [6, 5], '21日': [7, 5],
+      '22日': [1, 6], '23日': [2, 6], '24日': [3, 6], '25日': [4, 6], '26日': [5, 6], '27日': [6, 6], '28日': [7, 6],
+      '29日': [1, 7], '30日': [2, 7], '31日': [3, 7],
+    },
+    weekdays: {
+      '星期日': [4, 7], '星期一': [5, 7], '星期二': [6, 7], '星期三': [7, 7],
+      '星期四': [5, 8], '星期五': [6, 8], '星期六': [7, 8],
+    },
+  },
+  piece_shapes: {
+    '1': [[1], [1], [1], [1]],
+    '2': [[1], [1]],
+    '3': [[0, 1, 0], [0, 1, 0], [1, 1, 1]],
+    '4': [[1, 0], [1, 0], [1, 0], [1, 1]],
+    '5': [[0, 1, 0], [0, 1, 0], [1, 1, 1]],
+    '6': [[1, 0], [1, 1], [1, 1]],
+    '7': [[1, 0], [1, 1]],
+    '8': [[1, 1, 0], [0, 1, 0], [0, 1, 1]],
+    '9': [[1, 0], [1, 0], [1, 1]],
+    '10': [[0, 0, 0, 0, 1], [1, 1, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0]],
+    '11': [[0, 0, 0, 0, 1], [1, 1, 0, 0, 0], [1, 0, 0, 0, 0]],
+  },
+};
+
+const PUZZLE_SETS = {
+  classic: { id: 'classic', label: '第一套', config: DEFAULT_CONFIG },
+  extended: { id: 'extended', label: '第二套', config: SECOND_CONFIG },
+};
+
 const PIECE_COLORS = {
   green: '#22c55e',
   purple: '#a855f7',
@@ -38,9 +86,21 @@ const PIECE_COLORS = {
   lightblue: '#38bdf8',
   darkblue: '#3b82f6',
   orange: '#fb923c',
+  '1': '#22c55e',
+  '2': '#38bdf8',
+  '3': '#a855f7',
+  '4': '#f97316',
+  '5': '#facc15',
+  '6': '#10b981',
+  '7': '#ef4444',
+  '8': '#8b5cf6',
+  '9': '#06b6d4',
+  '10': '#f472b6',
+  '11': '#84cc16',
 };
 
 const state = {
+  activeSetId: 'classic',
   config: clone(DEFAULT_CONFIG),
   month: 'APR',
   day: '15',
@@ -48,6 +108,7 @@ const state = {
   selectedPiece: null,
   placements: new Map(),
   pieceStates: {},
+  preview: null,
   message: '准备就绪',
   exportText: '',
 };
@@ -63,11 +124,8 @@ main();
 
 function main() {
   cacheElements();
-  initPieceStates(state.config);
-  populateSelectors();
   bindEvents();
-  applyDateSelection(false);
-  render();
+  applyPuzzleSet('classic');
 }
 
 function cacheElements() {
@@ -76,6 +134,7 @@ function cacheElements() {
     'weekdaySelect', 'btnAutoSolve', 'btnResetBoard', 'btnCancelSelection',
     'btnRotate', 'btnFlip', 'btnRecycle', 'btnExportLayout', 'btnImportLayout',
     'btnSaveImage', 'btnClearDate', 'configFile', 'btnLoadConfig', 'boardWrap',
+    'btnSetClassic', 'btnSetExtended',
   ]) {
     els[id] = document.getElementById(id);
   }
@@ -89,6 +148,8 @@ function initPieceStates(config) {
 }
 
 function bindEvents() {
+  els.btnSetClassic.addEventListener('click', () => applyPuzzleSet('classic'));
+  els.btnSetExtended.addEventListener('click', () => applyPuzzleSet('extended'));
   els.btnAutoSolve.addEventListener('click', handleAutoSolve);
   els.btnResetBoard.addEventListener('click', resetBoard);
   els.btnCancelSelection.addEventListener('click', () => selectPiece(null));
@@ -114,6 +175,33 @@ function bindEvents() {
   });
   els.board.addEventListener('contextmenu', (event) => event.preventDefault());
   window.addEventListener('keydown', handleKeyboard);
+}
+
+function applyPuzzleSet(setId) {
+  const preset = PUZZLE_SETS[setId];
+  if (!preset) return;
+  state.activeSetId = setId;
+  state.config = clone(preset.config);
+  state.selectedPiece = null;
+  state.preview = null;
+  state.placements.clear();
+  state.month = Object.keys(state.config.label_map?.months ?? {})[0] ?? '';
+  state.day = Object.keys(state.config.label_map?.days ?? {})[0] ?? '';
+  state.weekday = Object.keys(state.config.label_map?.weekdays ?? {})[0] ?? '';
+  initPieceStates(state.config);
+  populateSelectors();
+  syncSetButtons();
+  state.message = `已切换到 ${preset.label}`;
+  render();
+}
+
+function syncSetButtons() {
+  if (els.btnSetClassic) {
+    els.btnSetClassic.classList.toggle('active', state.activeSetId === 'classic');
+  }
+  if (els.btnSetExtended) {
+    els.btnSetExtended.classList.toggle('active', state.activeSetId === 'extended');
+  }
 }
 
 function populateSelectors() {
@@ -270,6 +358,7 @@ function renderBoard() {
   const fixedBlocks = toCellSets(state.config.fixed_blocks ?? {});
   const selectedPieceCells = state.selectedPiece && state.placements.get(state.selectedPiece)?.cells;
   const occupied = buildOccupiedMap();
+  const boardLabels = buildBoardLabelMap(state.config);
 
   for (let y = 1; y <= height; y += 1) {
     for (let x = 1; x <= width; x += 1) {
@@ -279,16 +368,25 @@ function renderBoard() {
       button.className = 'board-cell';
       button.dataset.x = String(x);
       button.dataset.y = String(y);
-      button.textContent = x === 1 ? `${y}` : '';
+      const label = boardLabels.get(key);
+      button.textContent = label ?? (x === 1 ? `${y}` : '');
+      if (label) button.classList.add('has-label');
       if (isTargetCell(key, holes, fixedBlocks)) button.classList.add('is-target');
-      if (holes.has(key)) button.classList.add('is-hole');
+      if (holes.has(key)) button.classList.add(state.activeSetId === 'extended' ? 'is-void' : 'is-hole');
       if (fixedBlocks.has(key)) button.classList.add('is-fixed');
       if (selectedPieceCells && selectedPieceCells.has(key)) button.classList.add('is-selected-target');
-      button.addEventListener('click', () => handleBoardClick(x, y));
-      button.addEventListener('contextmenu', (event) => {
-        event.preventDefault();
-        handleBoardRightClick(x, y, occupied);
-      });
+      if (!holes.has(key)) {
+        button.addEventListener('click', () => handleBoardClick(x, y));
+        button.addEventListener('mouseenter', () => handleBoardHover(x, y));
+        button.addEventListener('pointermove', () => handleBoardHover(x, y));
+        button.addEventListener('contextmenu', (event) => {
+          event.preventDefault();
+          handleBoardRightClick(x, y, occupied);
+        });
+      } else {
+        button.disabled = true;
+        button.setAttribute('aria-hidden', 'true');
+      }
       board.appendChild(button);
     }
   }
@@ -303,6 +401,16 @@ function renderBoard() {
   }
 
   board.appendChild(overlay);
+}
+
+function buildBoardLabelMap(config) {
+  const labels = new Map();
+  for (const group of ['months', 'days', 'weekdays']) {
+    for (const [label, cell] of Object.entries(config.label_map?.[group] ?? {})) {
+      labels.set(cellKey(cell[0], cell[1]), label);
+    }
+  }
+  return labels;
 }
 
 function renderPlacementLayer(piece, cells, width, height) {
@@ -1118,6 +1226,8 @@ async function loadConfigFromFile() {
     const text = await file.text();
     const config = JSON.parse(text);
     applyConfig(config);
+    state.activeSetId = 'custom';
+    syncSetButtons();
     toast('配置已加载。');
   } catch (error) {
     toast(error.message || String(error));
@@ -1125,6 +1235,7 @@ async function loadConfigFromFile() {
 }
 
 function applyConfig(config) {
+  state.activeSetId = 'custom';
   state.config = mergeConfig(config);
   initPieceStates(state.config);
   state.placements.clear();
@@ -1136,6 +1247,7 @@ function applyConfig(config) {
   state.day = dayValues[0] ?? '';
   state.weekday = weekdayValues[0] ?? '';
   populateSelectors();
+  syncSetButtons();
   render();
 }
 

@@ -13,9 +13,13 @@
         <div>
           <p class="eyebrow">Calendar Puzzle</p>
           <h1>日历拼图网页版</h1>
-          <p class="subtitle">点击拼块选择，点击棋盘摆放；支持旋转、翻转、自动求解、导入导出和图片保存。</p>
+          <p class="subtitle">点击拼块选择，点击棋盘摆放；支持旋转、翻转、自动求解、导入导出、图片保存和方案切换。</p>
         </div>
         <div class="topbar-actions">
+          <div class="set-switcher" role="tablist" aria-label="棋盘方案切换">
+            <button id="btnSetClassic" class="set-switch active" type="button">第一套</button>
+            <button id="btnSetExtended" class="set-switch" type="button">第二套</button>
+          </div>
           <button id="btnAutoSolve" class="primary">自动解</button>
           <button id="btnResetBoard">重置摆放</button>
           <button id="btnCancelSelection">取消选中</button>

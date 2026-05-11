@@ -114,6 +114,26 @@ h1 {
   gap: 10px;
 }
 
+.set-switcher {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.set-switch {
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+}
+
+.set-switch.active {
+  background: rgba(96, 165, 250, 0.18);
+  border-color: rgba(96, 165, 250, 0.52);
+  color: #fff;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
@@ -187,9 +207,24 @@ h1 {
   background: rgba(255, 255, 255, 0.035);
 }
 
+.board-cell.has-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.96);
+  text-align: center;
+  white-space: nowrap;
+}
+
 .board-cell.is-hole {
   background: linear-gradient(135deg, rgba(244, 244, 245, 0.16), rgba(148, 163, 184, 0.08));
   color: rgba(255, 255, 255, 0.85);
+}
+
+.board-cell.is-void {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.06);
+  color: transparent;
+  pointer-events: none;
 }
 
 .board-cell.is-fixed {
