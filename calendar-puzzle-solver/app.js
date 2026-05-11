@@ -448,6 +448,21 @@ function renderBoard() {
   }
 
   board.appendChild(overlay);
+
+  const textOverlay = document.createElement('div');
+  textOverlay.className = 'board-text-overlay';
+  for (const [key, info] of boardLabels.entries()) {
+    const [x, y] = parseKey(key);
+    const span = document.createElement('span');
+    span.className = 'board-text-label';
+    span.textContent = info.label;
+    span.style.left = `${(x - 1) * CELL}px`;
+    span.style.top = `${(y - 1) * CELL}px`;
+    span.style.width = `${CELL}px`;
+    span.style.height = `${CELL}px`;
+    textOverlay.appendChild(span);
+  }
+  board.appendChild(textOverlay);
 }
 
 function buildBoardLabelMap(config) {
