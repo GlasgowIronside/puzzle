@@ -1,0 +1,34 @@
+{
+  "board_size": [10, 5],
+  "allow_reflection": true,
+  "fixed_blocks": {
+    "orange": [[9, 3], [10, 3], [9, 4], [10, 4], [9, 5], [10, 5]]
+  },
+  "constraints": {
+    "forbid_reflection": [],
+    "fixed_piece_positions": {},
+    "must_cover": {},
+    "must_not_cover": {}
+  },
+  "label_map": {
+    "months": {
+      "APR": [1, 2]
+    },
+    "days": {
+      "15": [5, 3]
+    },
+    "weekdays": {
+      "WED": [10, 2]
+    }
+  },
+  "piece_shapes": {
+    "green": [[1, 1, 1, 1], [0, 0, 1, 0]],
+    "purple": [[1, 1, 1, 0], [0, 0, 1, 1]],
+    "yellow": [[0, 1, 1], [0, 1, 0], [1, 1, 0]],
+    "red": [[1, 1, 1], [0, 0, 1], [0, 0, 1]],
+    "gray": [[1, 1, 0], [0, 1, 1], [0, 1, 1]],
+    "pink": [[1, 1, 1], [1, 0, 1]],
+    "lightblue": [[1, 0], [1, 1], [1, 1]],
+    "darkblue": [[1, 1, 1, 1], [0, 0, 0, 1]]
+  }
+}
