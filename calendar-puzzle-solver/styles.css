@@ -10,8 +10,6 @@
   --warn: #f59e0b;
   --danger: #ef4444;
   --cell-size: 42px;
-  --board-width: calc(var(--cell-size) * 10);
-  --board-height: calc(var(--cell-size) * 5);
   --shadow: 0 16px 40px rgba(2, 6, 23, 0.35);
   font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
@@ -179,11 +177,7 @@ h1 {
 
 .board {
   position: relative;
-  width: var(--board-width);
-  height: var(--board-height);
   display: grid;
-  grid-template-columns: repeat(10, var(--cell-size));
-  grid-template-rows: repeat(5, var(--cell-size));
   gap: 0;
   border-radius: 18px;
   background: rgba(15, 23, 42, 0.94);
@@ -198,9 +192,16 @@ h1 {
   color: rgba(226, 232, 240, 0.7);
   font-size: 0.7rem;
   padding: 0;
-  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   overflow: hidden;
+  transition: background 0.12s ease;
+}
+
+.board-cell:not(:disabled):hover {
+  background: rgba(96, 165, 250, 0.08);
 }
 
 .board-cell.is-target {
@@ -208,18 +209,36 @@ h1 {
 }
 
 .board-cell.has-label {
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: rgba(226, 232, 240, 0.85);
-  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.75);
   white-space: nowrap;
 }
 
+.board-cell.label-months {
+  color: rgba(168, 85, 247, 0.85);
+}
+
+.board-cell.label-weekdays {
+  color: rgba(34, 197, 94, 0.85);
+}
+
+.board-cell.label-days {
+  color: rgba(226, 232, 240, 0.65);
+}
+
 .board-cell.is-label-point {
-  background: linear-gradient(135deg, rgba(96, 165, 250, 0.92), rgba(59, 130, 246, 0.86));
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  color: rgba(15, 23, 42, 0.95);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.88), rgba(59, 130, 246, 0.82));
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12), 0 2px 8px rgba(59, 130, 246, 0.25);
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  animation: datePointPulse 2s ease-in-out infinite;
+}
+
+@keyframes datePointPulse {
+  0%, 100% { box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12), 0 2px 8px rgba(59, 130, 246, 0.25); }
+  50% { box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12), 0 2px 12px rgba(59, 130, 246, 0.4); }
 }
 
 .board-cell.is-hole {
@@ -348,12 +367,36 @@ input[type="file"]:focus {
   min-height: 154px;
   padding: 12px;
   background: rgba(2, 6, 23, 0.36);
+  border: 1px solid transparent;
   border-radius: 18px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  cursor: pointer;
+}
+
+.piece-card:hover {
+  border-color: rgba(148, 163, 184, 0.3);
+  transform: translateY(-1px);
 }
 
 .piece-card.active {
   border-color: rgba(96, 165, 250, 0.78);
   box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35), inset 0 0 0 1px rgba(96, 165, 250, 0.18);
+  transform: translateY(-2px);
+}
+
+.piece-card.placed {
+  opacity: 0.55;
+}
+
+.piece-card.placed::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
 }
 
 .piece-card-title {
@@ -417,11 +460,22 @@ input[type="file"]:focus {
   transform: translateY(8px);
   transition: opacity 0.18s ease, transform 0.18s ease;
   pointer-events: none;
+  backdrop-filter: blur(8px);
 }
 
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+button.primary:disabled {
+  background: rgba(37, 99, 235, 0.4);
+  animation: solvingPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes solvingPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 @media (max-width: 1180px) {
@@ -436,7 +490,7 @@ input[type="file"]:focus {
 
 @media (max-width: 680px) {
   :root {
-    --cell-size: 34px;
+    --cell-size: 38px;
   }
 
   .app-shell {
@@ -448,6 +502,15 @@ input[type="file"]:focus {
   }
 
   .piece-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .piece-card {
+    min-height: 120px;
+    padding: 8px;
+  }
+
+  .hint-row {
+    font-size: 0.8rem;
   }
 }

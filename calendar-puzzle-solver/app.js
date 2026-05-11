@@ -399,9 +399,9 @@ function renderBoard() {
       button.dataset.y = String(y);
       const labelInfo = boardLabels.get(key);
       const label = labelInfo?.label;
-      button.textContent = label ?? (x === 1 ? `${y}` : '');
+      button.textContent = label ?? '';
       if (labelInfo) {
-        button.classList.add('has-label');
+        button.classList.add('has-label', `label-${labelInfo.group}`);
       }
       if (!holes.has(key) && !fixedCellSet.has(key)) button.classList.add('is-target');
       if (holes.has(key)) {
@@ -454,7 +454,7 @@ function buildBoardLabelMap(config) {
   const labels = new Map();
   for (const group of ['months', 'days', 'weekdays']) {
     for (const [label, cell] of Object.entries(config.label_map?.[group] ?? {})) {
-      labels.set(cellKey(cell[0], cell[1]), { label });
+      labels.set(cellKey(cell[0], cell[1]), { label, group });
     }
   }
   return labels;
@@ -535,10 +535,11 @@ function renderPieceList() {
     for (let i = 0; i < pieces.length; i++) {
       const name = pieces[i];
       const card = existingCards[i];
+      const placement = state.placements.get(name);
       card.classList.toggle('active', state.selectedPiece === name);
+      card.classList.toggle('placed', Boolean(placement));
       const statusEl = card.querySelector('.piece-status');
       if (statusEl) {
-        const placement = state.placements.get(name);
         const ps = state.pieceStates[name];
         statusEl.textContent = placement ? '已放置' : `旋转 ${ps.rotation * 90}°${ps.reflected ? ' · 翻面' : ''}`;
       }
@@ -555,6 +556,7 @@ function renderPieceList() {
     const preview = card.querySelector('.piece-preview');
     title.textContent = name;
     card.classList.toggle('active', state.selectedPiece === name);
+    card.classList.toggle('placed', state.placements.has(name));
     card.addEventListener('click', () => selectPiece(name));
     card.addEventListener('contextmenu', (event) => {
       event.preventDefault();
